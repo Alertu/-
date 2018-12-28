@@ -1,0 +1,61 @@
+自定义短信模板
+比如自定义模板为：
+如果用户需要群发发送模板理想状态是这样的，处理方式如下：
+尊敬的Alert先生，2030年10月23日（星期二），下午4时，中国大饭店（北京市朝阳区建国门外大街1号），
+Alert会籍邀请您共享高尔夫盛宴。获取签到专用二维码，
+请访问： https://w.url.cn/s/AIh7jg [Alert系统]
+首先：按照经验任意一次会议都会收集姓名与手机号，所以姓名与手机号默认设置为填写项。当然也可以自定义为填写项。
+创建模板需要填写对应的格式。比如：
+比如：尊敬的姓名先生(系统自动添加相应的姓名：比如：Alert)，
+2030年10月23日（星期二），下午4时，
+中国大饭店（北京市朝阳区建国门外大街1号），
+Alert会籍邀请您共享高尔夫盛宴。
+还有是否选择发送签到二维码
+如果选择了发送短信二维码，系统会自动补充：
+获取签到专用二维码，请访问： 二维码下载链接 [Alert系统]
+不选择签到二维码，只补充：
+[Alert系统]
+经过补充后，用户创建模板就会成为：
+尊敬的姓名，2030年10月23日（星期二），下午4时，中国大饭店（北京市朝阳区建国门外大街1号）
+，Alert会籍邀请您共享高尔夫盛宴。获取签到专用二维码，请访问： 二维码下载链接 [Alert系统]
+当选择该模板群发时：
+            $Sms=Sms::findOne($value['type']);
+            $user_phone=[];
+            $count_contents=[];
+            foreach ($RegisterInformation as $k=>$v)
+            {   
+                手机号不存在停止一次循环
+                if (empty($v['user_phone']))
+                {
+                    continue;
+                }
+                $content=$Sms['content']; 用户创建的模板
+                需要替换其中的字符
+                一个比较LOW的办法，根据经验创建模板时99%的用户只会输入姓名等称呼别来组成短信模板，所以就不失为一个号的解决办法。
+                if (strstr($Sms['content'],'姓名')!=false)
+                {
+                    $content=str_replace('姓名',$v['user_name'],$Sms['content']);
+                }
+                if (strstr($Sms['content'],'性别')!=false)
+                {
+                    $content=str_replace('性别',$v['user_sex']==1?"先生":"女士",$content);
+
+                }
+                if (strstr($Sms['content'],'二维码下载链接') != false)
+                {
+                    $url="https://";短信二维码页面
+                    $conn=WxUtils::getShorturl($url);把URL转变为短连接。节省短信条数。。。。。
+                    $content=str_replace('二维码下载链接',$conn->short_url,$content);
+                }
+                $count_content=mb_strlen($content);计算拼接完成后字符串的数量，因为短信一个汉字算一个字符，用mb_strlen
+                $count_contents[]=intval(ceil($count_content/70)); 一条短信时70个字符
+                $Code=Sms::actionCode($v['user_phone'],$content);发送短信
+                短信发送回执没在当前服务器上，接受不到回执，暂时不能根据短信接口回执判断。
+                如果是正常的短信接口，接受到短信回执，根据短信回执判断发送结果。
+            }
+            现在还不是很完善。等修改的代码再来更新
+            需要添加短信发送日志，统计发送成功的手机号。
+            因为如果存在手机号的问题发送失败不能算作发送次数。
+            因为网络延迟等原因导致的短信发送失败不能算作发送次
+         
+
