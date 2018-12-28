@@ -1,0 +1,98 @@
+需要下载YII2 PHPExcel 直接下载压缩包 
+或者使用 composer require phpoffice/phpexcel 
+            $file = UploadedFile::getInstance($model, 'file');  //获取上传的文件实例，单文件 多文件用getInstances
+            $filename = 'uploads/' . date('Y-m-d', time()) . '_' . rand(1, 9999) . "." . $file->extension;  设置文件名      
+            $file->saveAs($filename);   //保存文件
+            //允许上传的文件
+            if (in_array($file->extension, array('xls', 'xlsx'))) {
+                /*$excelFile = Yii::getAlias('@web/www/uploads'.$filename.'');*///获取文件名
+                $fileType = \PHPExcel_IOFactory::identify($filename); //文件名自动判断文件类型
+                $excelReader = \PHPExcel_IOFactory::createReader($fileType);
+                $phpexcel = $excelReader->load($filename)->getSheet(0);//载入文件并获取第一个sheet
+                $total_line = $phpexcel->getHighestRow();//总行数
+                $total_column = $phpexcel->getHighestColumn();//总列数
+                //取得所有的表头
+                $title = array();
+                //意思是从：A列开始 比如：A1 B1
+                for ($row = 1; $row <= 1; $row++) {
+                    for ($column = 'A'; $column <= $total_column; $column++) {
+                    //去除空格并且保存
+                        $title[] = trim($phpexcel->getCell("$column$row")->getValue());
+                    }
+                }
+                $datas=array();
+                表格数据
+                for ($row = 2; $row <= $total_line; $row++) {
+                    $data=[];
+                    for ($column = 'A'; $column <= $total_column; $column++) {
+                        $data[] = trim($phpexcel->getCell("$column$row")->getValue());
+                    }
+                    如果$data[0] 就是表格数据的第一条累死：A2=$data[0]
+                    如果遇到空的就终止循环，只保存遇到空行之前的数据。
+                    if (empty($data[0]) ||  empty($data[1]))
+                    {
+                        break;
+                    }
+                    根据总列数保存数据
+                    $datas[]['data']=$data;
+                }
+                $count=count($datas[0]['data']);
+                $sum=count($datas);
+                $ev=Event::findOne($id);
+                $RegisterInformation=RegisterInformation::find()->where(['event_id'=>$id])->count();
+                $c=$RegisterInformation+$sum;
+                $b=$ev['size'];
+                $EventSign=EventSign::find()->where(['event_id'=>yii::$app->request->post('eventid')])->count();
+                $jia4=$EventSign+4;
+                $counttitle=count($title);
+                if ($jia4 != $counttitle)
+                {
+                    return "<script>alert('表格不按照模板样式，请修改后再次提交!');javascript:history.go(-2)</script>";
+                }
+                if (intval($c)>intval($b))
+                {
+                    return "<script>alert('超出会议规模请重新筛选，或者联系管理员修改会议规模！');javascript:history.go(-2)</script>";
+                }
+                array_splice($title,0,3);
+                    foreach ($datas as $key=>$value)
+                    {
+                        if ($value['data'][0]=="" && $value['data'][1]=="" && $value['data'][2]=="")
+                        {
+                            continue;
+                        }
+                        $RegisterInformation=new RegisterInformation();
+                        $RegisterInformation->user_name=$value['data'][0];
+                        $RegisterInformation->user_phone=$value['data'][1];
+                        $RegisterInformation->typer_id=$value['data'][2];
+                        foreach ($title as $k=>$v)
+                        {
+                            $EventSign=EventSign::find()->where(['event_id'=>yii::$app->request->post('eventid'),'type'=>$v])->one();
+                            $Field=$EventSign['Field'];
+                            $a=count($title)-1;
+                            if ($k==$a)
+                            {
+                                continue;
+                            }
+                            $RegisterInformation->$Field=$value['data'][$k+3];
+                        }
+                        $RegisterInformation->status=intval($value['data'][$count-1]);
+                        $RegisterInformation->event_id=yii::$app->request->post('eventid');
+                        $RegisterInformation->save();
+                        $name='QR'.rand(0,99999999).time().'code'.'.'.'png';
+                        $urle='../../frontend/website/images/qrcode/'.date('Ymd',time()).'/';
+                        $courl='images/qrcode/'.date('Ymd',time()).'/';
+                        if (!is_dir($urle))
+                        {
+                            mkdir($urle,0777,true);
+                        }
+                        $url=$urle.$name;
+                        $qr='https://yq.51data.com.cn/code/'.'index?eventid='.yii::$app->request->post('eventid').'&reginfoid='.$RegisterInformation->id;
+//        $qr=json_encode(array('eventid'=>$data['eventid'],'reginfoid'=>$model->id));
+                        $Qrcode=QRcode::png($qr,$url);
+                        $qrcodes=new RegistrationQrcode();
+                        $qrcodes->event_id=yii::$app->request->post('eventid');
+                        $qrcodes->register_information_id=$RegisterInformation->id;
+                        $qrcodes->img_url=$courl.$name;
+                        $qrcodes->save();
+                    }
+            }
